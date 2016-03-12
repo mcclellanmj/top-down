@@ -41,18 +41,28 @@ impl App {
 
     fn update(&mut self, args: &UpdateArgs) {
         // Rotate 2 radians per second.
-        self.rotation += 2.0 * args.dt;
+        self.rotation += 6.0 * args.dt;
+    }
+
+    fn handle_input(&mut self, input_event: Input) {
+        println!("{:?}", input_event);
+        match input_event {
+            Input::Press(_) => println!("Moving up"),
+            Input::Release(_) => println!("Stop moving up"),
+            Input::Move(Motion::MouseCursor(x, y)) => println!("Mouse is at ({}, {})", x, y),
+            _ => println!("Unhandled input {:?}", input_event),
+        }
     }
 }
 
 fn main() {
     // Change this to OpenGL::V2_1 if not working.
-    let opengl = OpenGL::V3_2;
+    let opengl = OpenGL::V2_1;
 
     // Create an Glutin window.
     let mut window: Window = WindowSettings::new(
-            "spinning-square",
-            [200, 200]
+            "top-down",
+            [640, 480]
         )
         .opengl(opengl)
         .exit_on_esc(true)
@@ -67,12 +77,23 @@ fn main() {
 
     let mut events = window.events();
     while let Some(e) = events.next(&mut window) {
-        if let Some(r) = e.render_args() {
-            app.render(&r);
+        match e {
+            Event::Render(r) => app.render(&r),
+            Event::Update(u) => app.update(&u),
+            Event::Input(i) => app.handle_input(i),
+            Event::AfterRender(_) => {},
+            Event::Idle(_) => {},
         }
 
-        if let Some(u) = e.update_args() {
-            app.update(&u);
+/*
+        if let Some(button) = e.press_args() {
+            println!("{:?}", button);
+            match button {
+                Button::Keyboard(Key::W) => println!("Start moving up"),
+                _ => {},
+            }
+
         }
+        */
     }
 }
