@@ -44,9 +44,9 @@ impl App {
         self.rotation += 6.0 * args.dt;
     }
 
-    fn handle_input(&mut self, input_event: Input) {
+    fn handle_input(&mut self, input_event: &Input) {
         println!("{:?}", input_event);
-        match input_event {
+        match *input_event {
             Input::Press(_) => println!("Moving up"),
             Input::Release(_) => println!("Stop moving up"),
             Input::Move(Motion::MouseCursor(x, y)) => println!("Mouse is at ({}, {})", x, y),
@@ -80,7 +80,7 @@ fn main() {
         match e {
             Event::Render(r) => app.render(&r),
             Event::Update(u) => app.update(&u),
-            Event::Input(i) => app.handle_input(i),
+            Event::Input(i) => app.handle_input(&i),
             Event::AfterRender(_) => {},
             Event::Idle(_) => {},
         }
