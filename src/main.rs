@@ -1,3 +1,6 @@
+// TODO: Make an input module that will allow code based input configuration
+// Should have options like whileDown(Keyboard::Key(W), MoveForward)
+// onPress(Mouse::Button(1), FireWeapon)
 extern crate piston;
 extern crate graphics;
 extern crate glutin_window;
@@ -8,31 +11,66 @@ use piston::event_loop::*;
 use piston::input::*;
 use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
+use std::collections::{ HashMap, HashSet };
+
+#[derive(Debug)]
+pub enum GameAction {
+    MoveForward(f32),
+    MoveBackward(f32),
+    MoveLeft(f32),
+    MoveRight(f32),
+    Trigger(bool)
+}
+
+struct KeyboardState {
+    keys_down: HashSet<Key>,
+    new_keys: HashSet<Key>
+}
+
+impl KeyboardState {
+    fn new() -> KeyboardState {
+        return KeyboardState {
+            keys_down: HashSet::new(),
+            new_keys: HashSet::new()
+        }
+    }
+}
 
 pub struct App {
-    gl: GlGraphics, // OpenGL drawing backend.
-    rotation: f64   // Rotation for the square.
+    gl: GlGraphics,
+    rotation: f64,
+    keyboard_state: KeyboardState
 }
 
 impl App {
+    fn new(opengl: OpenGL) -> App {
+        return App {
+            gl: GlGraphics::new(opengl),
+            rotation: 0.0,
+            keyboard_state: KeyboardState::new()
+        }
+    }
+
     fn render(&mut self, args: &RenderArgs) {
         use graphics::*;
 
+        const BLACK: [f32; 4] = [0.0, 0.0, 0.0, 1.0];
         const GREEN: [f32; 4] = [0.0, 1.0, 0.0, 1.0];
-        const RED:   [f32; 4] = [1.0, 0.0, 0.0, 1.0];
+        const RED:   [f32; 4] = [1.0, 0.0, 1.0, 0.5];
+        const RECT_SIZE : f64 = 100.0;
 
-        let square = rectangle::square(0.0, 0.0, 50.0);
+        let square = rectangle::square(0.0, 0.0, RECT_SIZE);
         let rotation = self.rotation;
         let (x, y) = ((args.width / 2) as f64,
                       (args.height / 2) as f64);
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
-            clear(GREEN, gl);
+            clear(BLACK, gl);
 
             let transform = c.transform.trans(x, y)
                                        .rot_rad(rotation)
-                                       .trans(-25.0, -25.0);
+                                       .trans(-(RECT_SIZE / 2.0), -(RECT_SIZE / 2.0));
 
             // Draw a box rotating around the middle of the screen.
             rectangle(RED, square, transform, gl);
@@ -41,14 +79,24 @@ impl App {
 
     fn update(&mut self, args: &UpdateArgs) {
         // Rotate 2 radians per second.
+
+        // println!("{:?}", self.keyboard_state.keys_down);
+        println!("{:?}", self.keyboard_state.new_keys);
+        self.keyboard_state.new_keys.clear();
         self.rotation += 6.0 * args.dt;
     }
 
     fn handle_input(&mut self, input_event: &Input) {
-        println!("{:?}", input_event);
         match *input_event {
-            Input::Press(_) => println!("Moving up"),
-            Input::Release(_) => println!("Stop moving up"),
+            Input::Press(Button::Keyboard(key)) => {
+                let new_insert = self.keyboard_state.keys_down.insert(key);
+                if(new_insert) {
+                    self.keyboard_state.new_keys.insert(key);
+                }
+            },
+            Input::Release(Button::Keyboard(key)) => {
+                self.keyboard_state.keys_down.remove(&key);
+            },
             Input::Move(Motion::MouseCursor(x, y)) => println!("Mouse is at ({}, {})", x, y),
             _ => println!("Unhandled input {:?}", input_event),
         }
@@ -70,10 +118,7 @@ fn main() {
         .unwrap();
 
     // Create a new game and run it.
-    let mut app = App {
-        gl: GlGraphics::new(opengl),
-        rotation: 0.0
-    };
+    let mut app = App::new(opengl);
 
     let mut events = window.events();
     while let Some(e) = events.next(&mut window) {
@@ -84,16 +129,5 @@ fn main() {
             Event::AfterRender(_) => {},
             Event::Idle(_) => {},
         }
-
-/*
-        if let Some(button) = e.press_args() {
-            println!("{:?}", button);
-            match button {
-                Button::Keyboard(Key::W) => println!("Start moving up"),
-                _ => {},
-            }
-
-        }
-        */
     }
 }
