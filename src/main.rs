@@ -2,6 +2,7 @@
 // Should have options like whileDown(Keyboard::Key(W), MoveForward)
 // onPress(Mouse::Button(1), FireWeapon)
 extern crate piston;
+extern crate vecmath;
 extern crate graphics;
 extern crate glutin_window;
 extern crate opengl_graphics;
@@ -39,15 +40,25 @@ impl KeyboardState {
 pub struct App {
     gl: GlGraphics,
     rotation: f64,
-    keyboard_state: KeyboardState
+    location: vecmath::Vector2<f64>,
+    keyboard_state: KeyboardState,
+    move_mapping: HashMap<Key, vecmath::Vector2<f64>>
 }
 
 impl App {
-    fn new(opengl: OpenGL) -> App {
+    fn new(opengl: OpenGL, (width, height): (f64, f64)) -> App {
+        let mut move_mapping = HashMap::new();
+        move_mapping.insert(Key::W, [0.0, -1.0]);
+        move_mapping.insert(Key::S, [0.0, 1.0]);
+        move_mapping.insert(Key::A, [-1.0, 0.0]);
+        move_mapping.insert(Key::D, [1.0, 0.0]);
+
         return App {
             gl: GlGraphics::new(opengl),
             rotation: 0.0,
-            keyboard_state: KeyboardState::new()
+            keyboard_state: KeyboardState::new(),
+            location: [(width / 2.0) as f64, (height / 2.0) as f64],
+            move_mapping: move_mapping
         }
     }
 
@@ -61,8 +72,8 @@ impl App {
 
         let square = rectangle::square(0.0, 0.0, RECT_SIZE);
         let rotation = self.rotation;
-        let (x, y) = ((args.width / 2) as f64,
-                      (args.height / 2) as f64);
+        let x = self.location[0];
+        let y = self.location[1];
 
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
@@ -78,12 +89,18 @@ impl App {
     }
 
     fn update(&mut self, args: &UpdateArgs) {
-        // Rotate 2 radians per second.
+        let mut velocity: vecmath::Vector2<f64> = [0.0, 0.0];
 
-        // println!("{:?}", self.keyboard_state.keys_down);
-        println!("{:?}", self.keyboard_state.new_keys);
+        for key in self.keyboard_state.keys_down.iter() {
+            match self.move_mapping.get(&key) {
+                Some(x) => velocity = vecmath::vec2_add(velocity, *x),
+                None => {}
+            }
+        }
+
+        self.location = vecmath::vec2_add(self.location, velocity);
+        self.rotation += 1.0 * args.dt;
         self.keyboard_state.new_keys.clear();
-        self.rotation += 6.0 * args.dt;
     }
 
     fn handle_input(&mut self, input_event: &Input) {
@@ -118,7 +135,7 @@ fn main() {
         .unwrap();
 
     // Create a new game and run it.
-    let mut app = App::new(opengl);
+    let mut app = App::new(opengl, (640.0, 480.0));
 
     let mut events = window.events();
     while let Some(e) = events.next(&mut window) {
