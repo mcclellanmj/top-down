@@ -3,6 +3,10 @@ name = "top-down"
 version = "0.1.0"
 authors = ["Matt McClellan <mcclellan.mj@gmail.com>"]
 
+[lib]
+name = "game_utils"
+path = "src/lib.rs"
+
 [[bin]]
 name = "top-down"
 

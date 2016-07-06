@@ -8,6 +8,9 @@ extern crate glutin_window;
 extern crate opengl_graphics;
 extern crate float;
 
+// My crates
+extern crate game_utils;
+
 use piston::window::WindowSettings;
 use piston::event_loop::*;
 use piston::input::*;
@@ -15,6 +18,7 @@ use glutin_window::GlutinWindow as Window;
 use opengl_graphics::{ GlGraphics, OpenGL };
 use std::collections::{ HashMap, HashSet };
 use float::Radians;
+use game_utils::game_math::{vec2_is_zero, vec2_rotate, get_rotation};
 
 #[derive(Debug)]
 pub enum GameAction {
@@ -46,36 +50,16 @@ struct PlayerState {
     angle: f64
 }
 
-struct ControlState {
-    velocity: vecmath::Vector2<f64>,
-    angle: f64,
-    aiming_point: vecmath::Vector2<f64>
+struct MouseState {
+    position: vecmath::Vector2<f64>
 }
 
 pub struct App {
     gl: GlGraphics,
     player_state: PlayerState,
-    control_state: ControlState,
-    keyboard_state: KeyboardState, // TODO: This is input state
+    keyboard_state: KeyboardState,
+    mouse_state: MouseState,
     move_mapping: HashMap<Key, vecmath::Vector2<f64>> // TODO: this is input state/configuration?
-}
-
-fn vec2_is_zero(vec:vecmath::Vector2<f64>) -> bool {
-    vec[0] == 0.0 && vec[1] == 0.0
-}
-
-fn vec2_rotate(vec: vecmath::Vector2<f64>, rotation: f64) -> vecmath::Vector2<f64> {
-    let rotation_matrix =  [
-        [rotation.cos(), -rotation.sin(), 0.0],
-        [rotation.sin(), rotation.cos(), 0.0]
-    ];
-
-
-    vecmath::row_mat2x3_transform_vec2(rotation_matrix, vec)
-}
-
-fn get_rotation(pos1: vecmath::Vector2<f64>, pos2: vecmath::Vector2<f64>) -> f64 {
-    (pos2[1] - pos1[1]).atan2(pos2[0] - pos1[0])
 }
 
 impl App {
@@ -88,10 +72,8 @@ impl App {
 
         return App {
             gl: GlGraphics::new(opengl),
-            control_state: ControlState {
-                velocity: [0.0, 0.0],
-                angle: 0.0,
-                aiming_point: [0.0, 0.0]
+            mouse_state: MouseState {
+                position: [0.0, 0.0]
             },
             player_state: PlayerState {
                 velocity: [0.0, 0.0],
@@ -117,6 +99,7 @@ impl App {
         let x = player.location[0];
         let y = player.location[1];
 
+
         self.gl.draw(args.viewport(), |c, gl| {
             // Clear the screen.
             clear(BLACK, gl);
@@ -131,6 +114,7 @@ impl App {
     }
 
     fn update(&mut self, args: &UpdateArgs) {
+        let elapsed_time = args.dt;
         let mut target_velocity = [0.0, 0.0];
 
         for key in self.keyboard_state.keys_down.iter() {
@@ -140,18 +124,31 @@ impl App {
             }
         }
 
-        if(!vec2_is_zero(target_velocity)) {
+        let desired_angle = get_rotation(self.player_state.location, self.mouse_state.position) + (90.0).deg_to_rad();
+        println!("Desired angle is {}", desired_angle);
+
+        if desired_angle != self.player_state.angle {
+            let direction = if desired_angle < self.player_state.angle {
+                -5.0
+            } else {
+                5.0
+            };
+
+            self.player_state.angle = self.player_state.angle + (direction * elapsed_time);
+        }
+
+        if !vec2_is_zero(target_velocity) {
             target_velocity = vecmath::vec2_normalized(target_velocity);
         }
-        target_velocity = vecmath::vec2_scale(target_velocity, self.player_state.max_speed);
+        target_velocity = vec2_rotate(vecmath::vec2_scale(target_velocity, self.player_state.max_speed), self.player_state.angle);
 
-        let new_velocity = if(vec2_is_zero(target_velocity)) {
-            if(!vec2_is_zero(self.player_state.velocity)){
+        let new_velocity = if vec2_is_zero(target_velocity) {
+            if !vec2_is_zero(self.player_state.velocity) {
                 let reverse = vec2_rotate(self.player_state.velocity, (180.0).deg_to_rad());
 
                 let scaled = vecmath::vec2_scale(
                     vecmath::vec2_normalized(reverse),
-                    0.1
+                    4.0 * elapsed_time
                 );
                 vecmath::vec2_add(self.player_state.velocity, scaled)
             } else {
@@ -162,12 +159,12 @@ impl App {
                 vecmath::vec2_normalized(
                     target_velocity
                 ),
-                0.5
+                5.0 * elapsed_time
             );
 
-            let mut new_velocity = vecmath::vec2_add(self.player_state.velocity, acceleration);
+            let new_velocity = vecmath::vec2_add(self.player_state.velocity, acceleration);
 
-            if(vecmath::vec2_len(new_velocity) > self.player_state.max_speed) {
+            if vecmath::vec2_len(new_velocity) > self.player_state.max_speed {
                 vecmath::vec2_scale(
                     vecmath::vec2_normalized(new_velocity),
                     self.player_state.max_speed
@@ -186,7 +183,7 @@ impl App {
         match *input_event {
             Input::Press(Button::Keyboard(key)) => {
                 let new_insert = self.keyboard_state.keys_down.insert(key);
-                if(new_insert) {
+                if new_insert {
                     self.keyboard_state.new_keys.insert(key);
                 }
             },
@@ -194,7 +191,7 @@ impl App {
                 self.keyboard_state.keys_down.remove(&key);
             },
             Input::Text(_) => {},
-            Input::Move(Motion::MouseCursor(x, y)) => self.control_state.aiming_point = [x, y],
+            Input::Move(Motion::MouseCursor(x, y)) => self.mouse_state.position = [x, y],
             _ => println!("Unhandled input {:?}", input_event),
         }
     }
