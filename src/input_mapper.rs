@@ -1,4 +1,4 @@
-extern crate piston
+extern crate piston;
 
 use piston::input::{Input};
 use std::collections::HashMap;

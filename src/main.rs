@@ -1,4 +1,8 @@
 // TODO: Make an input module that will allow code based input configuration
+// FIXME: Figure out how to find the shortest path for rotation, currently in some quadrants it rotates the long
+// way around
+// TODO: Clean up the update code, at the minimum it needs to be seperate functions possibly separate mods
+// TODO: Make a zero vector
 // Should have options like whileDown(Keyboard::Key(W), MoveForward)
 // onPress(Mouse::Button(1), FireWeapon)
 extern crate piston;
